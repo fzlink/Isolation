@@ -18,6 +18,8 @@ public class PlayerPawn : MonoBehaviour
     public PlayerNum playerNum;
     public Vector3Int CurrentTilePos { get; set; } = Vector3Int.zero;
     public List<Vector3Int> availableMoves;
+    public PlayerPawn opponent;
+    private Node bestState;
 
     private void Start()
     {
@@ -95,15 +97,236 @@ public class PlayerPawn : MonoBehaviour
             hasStartedPlaying = true;
             GameManager.Instance.TurnPlayed(randomPos);
         }
-
     }
 
     private void AIMove()
     {
+        Node root = MakeTree();
+        Minimax(root,GameManager.Instance.minimaxDepth,-Mathf.Infinity, Mathf.Infinity,true);
+        if(bestState != null)
+        {
+            if(bestState.nextMovesBelongsTo == PlayerNum.Player1)
+                CurrentTilePos = bestState.opponentPos;
+            else
+                CurrentTilePos = bestState.activePlayerPos;
+            transform.position = GameBoard.tileMap.GetCellCenterWorld(CurrentTilePos);
+            hasStartedPlaying = true;
+            GameManager.Instance.TurnPlayed(CurrentTilePos);
+        }
+    }
+
+    private float Minimax(Node node, int depth, float alpha, float beta, bool isMaximizingPlayer)
+    {
+        if (depth == 0 || node.moves.Count <= 0)
+        {
+            return node.score;
+        }
+
+
+        if (isMaximizingPlayer)
+        {
+            float maxEval = -Mathf.Infinity;
+            foreach (Node item in node.children)
+            {
+                float eval = Minimax(item, depth - 1, alpha, beta, false);
+                if(eval > maxEval)
+                {
+                    maxEval = eval;
+                    if(depth == GameManager.Instance.minimaxDepth)
+                        bestState = item;
+                }
+                alpha = Mathf.Max(alpha, eval);
+                if (beta <= alpha)
+                    break;
+            }
+
+            return maxEval;
+        }
+        else
+        {
+            float minEval = Mathf.Infinity;
+            foreach (Node item in node.children)
+            {
+                float eval = Minimax(item, depth - 1, alpha, beta, true);
+                minEval = Mathf.Min(minEval, eval);
+                beta = Mathf.Min(beta, eval);
+                if (beta <= alpha)
+                    break;
+            }
+
+            return minEval;
+        }
 
     }
 
-    public void UpdateAvaliableMoves(Tilemap tileMap, GameGrid gameGrid)
+    private Node MakeTree()
+    {
+        GameGrid realGrid = GameBoard.gameGrid;
+        GameGrid virtualGrid = new GameGrid();
+        virtualGrid.Grid = GameGrid.CloneGrid(realGrid.Grid);
+
+        Vector3Int opponentPos = opponent.CurrentTilePos;
+        PlayerNum nextMovesBelongsTo;
+
+        Queue<Node> list = new Queue<Node>();
+
+        Node root = new Node(virtualGrid, new List<Node>(),HeuristicManager.Heuristic(availableMoves.Count, opponent.availableMoves.Count) , 0, availableMoves,CurrentTilePos, opponentPos, PlayerNum.Player2);
+        list.Enqueue(root);
+
+        while (list.Count > 0)
+        {
+            Node node = list.Dequeue();
+            if (node.depth % 2 == 0)
+                nextMovesBelongsTo = PlayerNum.Player1;
+            else
+                nextMovesBelongsTo = PlayerNum.Player2;
+
+            if (node.depth <= GameManager.Instance.treeDepth && node.moves.Count > 0)
+            {
+                foreach (Vector3Int item in node.moves)
+                {
+                    GameGrid newGameGrid = new GameGrid();
+                    newGameGrid.Grid = GameGrid.CloneGrid(node.gameGrid.Grid);
+
+                    Vector3Int activePlayerPos = item;
+                    newGameGrid.Grid[item.x, item.y].isExplored = true;
+
+                    List<Vector3Int> nextMoves = GetAvailableMoves(newGameGrid,node.opponentPos);
+                    List<Vector3Int> thisMoves = GetAvailableMoves(newGameGrid, activePlayerPos);
+                    Node child = new Node(newGameGrid,new List<Node>(),HeuristicManager.Heuristic(thisMoves.Count,nextMoves.Count),node.depth+1,nextMoves, node.opponentPos,activePlayerPos, nextMovesBelongsTo);
+                    node.children.Add(child);
+                    list.Enqueue(child);
+                }
+            }
+        }
+        return root;
+    }
+
+
+    public List<Vector3Int> GetAvailableMoves(GameGrid gameGrid, Vector3Int currentPos)
+    {
+        availableMoves = new List<Vector3Int>();
+        int rows = gameGrid.Grid.GetLength(0);
+        int cols = gameGrid.Grid.GetLength(1);
+
+        int x, y;
+        //Up
+        Vector3Int pos = currentPos;
+        for (y = pos.y + 1; y < rows; y++)
+        {
+            Vector3Int posc = new Vector3Int(pos.x, y, 0);
+            if (!gameGrid.Grid[pos.x, y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Down
+        for (y = pos.y - 1; y >= 0; y--)
+        {
+            Vector3Int posc = new Vector3Int(pos.x, y, 0);
+            if (!gameGrid.Grid[pos.x, y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Right
+        for (x = pos.x + 1; x < cols; x++)
+        {
+            Vector3Int posc = new Vector3Int(x, pos.y, 0);
+            if (!gameGrid.Grid[x, pos.y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Left
+        for (x = pos.x - 1; x >= 0; x--)
+        {
+            Vector3Int posc = new Vector3Int(x, pos.y, 0);
+            if (!gameGrid.Grid[x, pos.y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Up-Left
+        y = pos.y;
+        for (x = pos.x - 1; x >= 0; x--)
+        {
+            y++;
+            if (y >= rows)
+                break;
+            Vector3Int posc = new Vector3Int(x, y, 0);
+            if (!gameGrid.Grid[x, y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Up-Right
+        y = pos.y;
+        for (x = pos.x + 1; x < cols; x++)
+        {
+            y++;
+            if (y >= rows)
+                break;
+            Vector3Int posc = new Vector3Int(x, y, 0);
+            if (!gameGrid.Grid[x, y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Down-Left
+        y = pos.y;
+        for (x = pos.x - 1; x >= 0; x--)
+        {
+            y--;
+            if (y < 0)
+                break;
+            Vector3Int posc = new Vector3Int(x, y, 0);
+            if (!gameGrid.Grid[x, y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        //Down-Right
+        y = pos.y;
+        for (x = pos.x + 1; x < cols; x++)
+        {
+            y--;
+            if (y < 0)
+                break;
+            Vector3Int posc = new Vector3Int(x, y, 0);
+            if (!gameGrid.Grid[x, y].isExplored)
+            {
+                if (!availableMoves.Contains(posc))
+                    availableMoves.Add(posc);
+            }
+            else
+                break;
+        }
+        return availableMoves;
+    }
+
+    public void UpdateAvaliableMoves(GameGrid gameGrid)
     {
         availableMoves = new List<Vector3Int>();
         int rows = gameGrid.Grid.GetLength(0);
@@ -237,4 +460,30 @@ public class PlayerPawn : MonoBehaviour
         }
     }
 
+}
+
+public class Node
+{
+    public GameGrid gameGrid;
+    public List<Node> children;
+    public float baseScore;
+    public float score;
+    public int depth;
+    public List<Vector3Int> moves;
+    public Vector3Int activePlayerPos;
+    public Vector3Int opponentPos;
+    public PlayerNum nextMovesBelongsTo;
+
+
+    public Node(GameGrid gameGrid, List<Node> children, float score, int depth, List<Vector3Int> moves, Vector3Int activePlayerPos, Vector3Int opponentPos, PlayerNum nextMovesBelongsTo)
+    {
+        this.gameGrid = gameGrid;
+        this.children = children;
+        this.score = score;
+        this.depth = depth;
+        this.moves = moves;
+        this.activePlayerPos = activePlayerPos;
+        this.opponentPos = opponentPos;
+        this.nextMovesBelongsTo = nextMovesBelongsTo;
+    }
 }

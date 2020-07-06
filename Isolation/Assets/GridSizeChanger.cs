@@ -23,8 +23,8 @@ public class GridSizeChanger : MonoBehaviour
     public void ChangeSize()
     {
         int xSize = Convert.ToInt32(xSizeInput.text);
-        int ySize = Convert.ToInt32(ySizeInput.text);
-        GameManager.Instance.ChangeGridSize(xSize, ySize);
+        //int ySize = Convert.ToInt32(ySizeInput.text);
+        GameManager.Instance.ChangeGridSize(xSize, xSize);
     }
 
 }

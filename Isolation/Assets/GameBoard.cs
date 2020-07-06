@@ -15,7 +15,7 @@ public class GameBoard : MonoBehaviour
 {
     public static Tilemap tileMap;
     private bool isPlayer1Turn;
-    private GameGrid gameGrid = new GameGrid();
+    public static GameGrid gameGrid = new GameGrid();
 
     public PlayerPawn player1;
     public PlayerPawn player2;
@@ -69,8 +69,8 @@ public class GameBoard : MonoBehaviour
 
     private void UpdateAvailableMoves()
     {
-        player1.UpdateAvaliableMoves(tileMap,gameGrid);
-        player2.UpdateAvaliableMoves(tileMap,gameGrid);
+        player1.UpdateAvaliableMoves(gameGrid);
+        player2.UpdateAvaliableMoves(gameGrid);
         if(player1.availableMoves.Count == 0  && player2.availableMoves.Count == 0)
         {
             //Draw
@@ -203,6 +203,22 @@ public class GameGrid
     public void MarkExplored(Vector3Int pos)
     {
         Grid[pos.x, pos.y].isExplored = true;
+    }
+
+    public static GameSquare[,] CloneGrid(GameSquare[,] grid)
+    {
+        int cols = grid.GetLength(0);
+        int rows = grid.GetLength(1);
+        GameSquare[,] clonedGrid = new GameSquare[cols, rows];
+        for (int i = 0; i < cols; i++)
+        {
+            for (int j = 0; j < rows; j++)
+            {
+                clonedGrid[i, j] = new GameSquare();
+                clonedGrid[i, j].isExplored = grid[i, j].isExplored;
+            }
+        }
+        return clonedGrid;
     }
 }
 

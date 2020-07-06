@@ -17,10 +17,41 @@ public class GameManager : MonoBehaviour
     public event Action<Gameplay> onGameplayChanged;
     public event Action<Vector3Int> onTurnPlayed;
 
+    public int minimaxDepth = 6;
+    public int treeDepth = 25;
+    public HeuristicType heuristicType = HeuristicType.Simple;
+
     private void Awake()
     {
         Instance = this;
     }
+
+    public void SetMiniMaxDepth(String minimaxDepth)
+    {
+        this.minimaxDepth = Convert.ToInt32(minimaxDepth);
+    }
+
+    public void SetTreeDepth(String treeDepth)
+    {
+        this.treeDepth = Convert.ToInt32(treeDepth);
+    }
+
+    public void SetHeuristicType(int heuristicType)
+    {
+        if(heuristicType == 0)
+        {
+            this.heuristicType = HeuristicType.Simple;
+        }
+        else if(heuristicType == 1)
+        {
+            this.heuristicType = HeuristicType.Defensive;
+        }
+        else if(heuristicType == 2)
+        {
+            this.heuristicType = HeuristicType.Offensive;
+        }
+    }
+    
 
 
     public void ChangeGridSize(int x, int y)
